@@ -94,6 +94,33 @@ const getThemeExport = (mod, exportName) => {
   return null
 }
 
+/**
+ * 已静态引入的主题（由 pages/_app.js 在模块加载时登记）。登记过的主题，布局直接取这一份，不走 dynamic()。
+ *
+ * 为什么：下面的 dynamic() 是在渲染过程中才创建的，Next 在每次渲染开始前做的预加载
+ * （服务端 Loadable.preloadAll、浏览器端 preloadReady）赶不上它。结果是：
+ *  - 服务端：一个进程里第一次渲染时布局还没加载好，整页输出空壳（没有正文、title、og 标签）。
+ *    Vercel 的函数经常冷启动，所以线上时有时无地返回空壳，分享链接没有预览卡片。
+ *  - 浏览器端：第一次渲染同样拿不到布局，服务器给的 HTML 接不上，被整份留在原地、另画一份；
+ *    普通页面靠 fixThemeDOM 删掉多余那份，/arabic-player 没走 useLayoutByTheme，所以叠着两份。
+ * 静态引入后，服务端和浏览器端的第一次渲染都是完整的。
+ *
+ * 只对登记过的主题生效；用 ?theme= 或 Notion 配置切到别的主题时，仍走原来的动态加载。
+ * 主题不在本文件里 import，是因为很多单测会间接加载本文件，把整个主题拖进去会让它们跑不起来。
+ */
+const staticThemes = new Map()
+
+export const registerStaticTheme = (themeName, themeModule) => {
+  if (themeName && themeModule) {
+    staticThemes.set(themeName, themeModule)
+  }
+}
+
+const getStaticLayout = (themeName, layoutName) => {
+  const themeModule = staticThemes.get(themeName)
+  return themeModule ? getThemeExport(themeModule, layoutName) : null
+}
+
 const scheduleFixThemeDOM = (delay = 120) => {
   if (!isBrowser) return
   if (domFixTimer) {
@@ -191,6 +218,10 @@ const getCurrentTheme = (router, fallbackTheme) => {
  */
 export const getBaseLayoutByTheme = theme => {
   const normalizedTheme = normalizeThemeName(theme)
+  const StaticBaseLayout = getStaticLayout(normalizedTheme, 'LayoutBase')
+  if (StaticBaseLayout) {
+    return StaticBaseLayout
+  }
   if (baseLayoutCache.has(normalizedTheme)) {
     return baseLayoutCache.get(normalizedTheme)
   }
@@ -223,6 +254,15 @@ export const useLayoutByTheme = ({ layoutName, theme }) => {
   const router = useRouter()
   const themeQuery = getCurrentTheme(router, theme)
   const cacheKey = `${themeQuery}:${layoutName}`
+
+  // 与 importThemeLayout 的规则一致：主题里没有这个布局时退回 LayoutSlug
+  const StaticLayout =
+    getStaticLayout(themeQuery, layoutName) ||
+    getStaticLayout(themeQuery, 'LayoutSlug')
+  if (StaticLayout) {
+    scheduleFixThemeDOM(80)
+    return StaticLayout
+  }
 
   if (layoutByThemeCache.has(cacheKey)) {
     scheduleFixThemeDOM(themeQuery === BLOG.THEME ? 80 : 240)

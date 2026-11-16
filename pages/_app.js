@@ -8,7 +8,10 @@ import '@/styles/notion.css' //  重写部分notion样式
 
 import useAdjustStyle from '@/hooks/useAdjustStyle'
 import { GlobalContextProvider } from '@/lib/global'
-import { getBaseLayoutByTheme } from '@/themes/theme'
+import { getBaseLayoutByTheme, registerStaticTheme } from '@/themes/theme'
+// 本站固定用 next 主题：静态引入并登记，首屏渲染不再等 dynamic()（原因见 themes/theme.js 的 staticThemes 说明）。
+// 以后换默认主题，把这里的文件夹名和下面登记的名字一起改。
+import * as StaticTheme from '@/themes/next'
 import { useRouter } from 'next/router'
 import { useCallback, useEffect, useMemo } from 'react'
 import { getQueryParam } from '../lib/utils'
@@ -25,6 +28,7 @@ import dynamic from 'next/dynamic'
 const ClerkProvider = dynamic(() =>
   import('@clerk/nextjs').then(m => m.ClerkProvider)
 )
+registerStaticTheme('next', StaticTheme)
 const AppErrorBoundary = ErrorHandler.createErrorBoundary(
   <div style={{ padding: '2rem', textAlign: 'center', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
     <h1 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Something went wrong</h1>
