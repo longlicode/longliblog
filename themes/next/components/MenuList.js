@@ -55,18 +55,6 @@ export const MenuList = props => {
     links = Array.isArray(customMenu) ? [...customMenu] : []
   }
 
-  const arabicPlayerLink = {
-    id: 'arabic-player',
-    icon: 'fas fa-language',
-    name: '阿拉伯语播放器',
-    href: '/arabic-player',
-    show: true
-  }
-
-  if (!links.some(link => link?.href === arabicPlayerLink.href)) {
-    links.push(arabicPlayerLink)
-  }
-
   if (!links || links.length === 0) {
     return null
   }
